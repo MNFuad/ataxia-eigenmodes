@@ -1,0 +1,8 @@
+numpy
+scipy
+pandas
+scikit-learn
+matplotlib
+nibabel
+tensorflow>=2.8
+keras-tuner

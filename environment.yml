@@ -1,0 +1,16 @@
+name: ataxia-eigenmodes
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - numpy
+  - scipy
+  - pandas
+  - scikit-learn
+  - matplotlib
+  - nibabel
+  - pip
+  - pip:
+      - tensorflow>=2.8
+      - keras-tuner
