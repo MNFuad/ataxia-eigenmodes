@@ -66,16 +66,14 @@ repo_root/
 │   ├── step1_generate_mbm_dummy_data.py
 │   └── step2_generate_mbam_dummy_data.py
 ├── matlab/
-│   ├── mbm/
-│   │   ├── eig_coef_func.m
-│   │   ├── step1_structural_mbm.m
-│   │   └── step2_functional_mbam.m
-│   └── tools/
-│       ├── MBM-main/               
-│       └── cifti-matlab/           
-└── docs/
-    ├── workflow_overview.png       
-    └── eigenmodes_basis.png        
+    ├── mbm/
+    │   ├── eig_coef_func.m
+    │   ├── step1_structural_mbm.m
+    │   └── step2_functional_mbam.m
+    └── tools/
+        ├── MBM-main/               
+        └── cifti-matlab/           
+     
 ```
 
 ---
@@ -87,14 +85,13 @@ repo_root/
 Requires external toolboxes:
 
 - **MBM-main**
-- **MBAM**
 - **cifti-matlab**
 
 Add to MATLAB path:
 
 ```matlab
-addpath('matlab/tools/MBM-main');
-addpath('matlab/tools/cifti-matlab');
+addpath(genpath('matlab/tools/MBM-main'));
+addpath(genpath('matlab/tools/cifti-matlab'));
 ```
 
 ---
