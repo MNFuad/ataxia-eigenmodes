@@ -291,3 +291,11 @@ Eigenmodes provide:
   url          = {https://github.com/<your-username>/ataxia-eigenmodes}
 }
 ```
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Contact
+
+For questions, please email [**email@anonymized.com**](mailto\:numan.fuad@gamil.com) (to be updated post-review).
