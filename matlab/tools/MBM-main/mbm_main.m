@@ -233,6 +233,176 @@ MBM.stat.thresMap(MBM.stat.pMap > MBM.stat.thres) = 0;
 % normalize the eigenmodes
 MBM.eig.eig = mbm_normalize_eig(MBM.eig.eig, MBM.eig.nEigenmode);
 
+%% === Yeo 7-network summary for each eigenmode (added) ===
+% You need to set these two fields before calling mbm_main:
+%   MBM.yeo7.annotFile : path to lh/rh Yeo2011_7Networks_N1000.annot
+%   MBM.yeo7.useAbs    : 1 (default) use mean(abs(mode)), 0 use mean(mode)
+%
+% Example:
+% MBM.yeo7.annotFile = '/path/to/lh.Yeo2011_7Networks_N1000.annot';
+% MBM.yeo7.useAbs = 1;
+if isfield(MBM, 'yeo7') && isfield(MBM.yeo7, 'annotFile') && ~isempty(MBM.yeo7.annotFile)
+
+    if ~isfield(MBM.yeo7, 'useAbs'); MBM.yeo7.useAbs = 1; end
+
+    % --- read Yeo7 labels from .annot ---
+    % requires FreeSurfer MATLAB function read_annotation()
+    [vertices, yeoLabelFull, ct] = read_annotation(MBM.yeo7.annotFile); %#ok<ASGLU>
+    for i = 1:numel(ct.struct_names)
+        switch ct.struct_names{i}
+            case '7Networks_1'
+                ct.struct_names{i} = 'Visual';
+    
+            case '7Networks_2'
+                ct.struct_names{i} = 'Somatomotor';
+    
+            case '7Networks_3'
+                ct.struct_names{i} = 'Dorsal Attention';
+    
+            case '7Networks_4'
+                ct.struct_names{i} = 'Ventral Attention / Salience';
+    
+            case '7Networks_5'
+                ct.struct_names{i} = 'Limbic';
+    
+            case '7Networks_6'
+                ct.struct_names{i} = 'Frontoparietal Control';
+    
+            case '7Networks_7'
+                ct.struct_names{i} = 'Default Mode';
+    
+            otherwise
+                % ?? FreeSurfer_Defined_Medial_Wall
+                % ?????
+         end
+     end
+
+    % Apply the same mask used for maps/eigenmodes
+    yeoLabel = yeoLabelFull(MBM.maps.mask == 1);
+
+    % Unique network IDs present after masking
+    netIDs = unique(yeoLabel(:))';
+    % Remove unknown/unlabeled labels when present. In many .annot files this is 0,
+    % while the medial wall can also appear as a named label in the colortable.
+    netIDs(netIDs == 0) = [];
+    nNet = numel(netIDs);
+
+    % ---- build labelID -> name mapping (robust) ----
+    % In .annot, yeoLabel contains integer IDs = ct.table(:,5), NOT 1..n
+    hasCT = isstruct(ct) && isfield(ct, 'table') && isfield(ct, 'struct_names') ...
+            && ~isempty(ct.table) && ~isempty(ct.struct_names);
+
+    id2name = containers.Map('KeyType', 'double', 'ValueType', 'char');
+    if hasCT
+        % ct.table(:,5) are the encoded integer IDs used in "label"
+        for r = 1:size(ct.table,1)
+            id2name(double(ct.table(r,5))) = ct.struct_names{r};
+        end
+    end
+
+    % Fallback names (common Yeo7 order) if colortable missing
+    fallbackNames = {'Visual','Somatomotor','Dorsal Attention','Ventral Attention / Salience', ...
+                     'Limbic','Frontoparietal Control','Default Mode'};
+
+    % Determine netNames aligned to netIDs (one name per netID)
+    netNames = cell(1, nNet);
+    for j = 1:nNet
+        thisID = double(netIDs(j));
+        if hasCT && isKey(id2name, thisID)
+            netNames{j} = id2name(thisID);
+        else
+            % if no colortable, we can only provide generic labels
+            if j <= numel(fallbackNames)
+                netNames{j} = fallbackNames{j};
+            else
+                netNames{j} = sprintf('label_%d', thisID);
+            end
+        end
+    end
+
+    % ---- compute network means for each eigenmode ----
+    nMode = MBM.eig.nEigenmode;
+    mean_abs    = nan(nMode, nNet);
+    mean_signed = nan(nMode, nNet);
+
+    for k = 1:nMode
+        modeMap = MBM.eig.eig(:, k);  % already masked vertices
+        for j = 1:nNet
+            idx = (yeoLabel == netIDs(j));
+            mean_signed(k, j) = mean(modeMap(idx), 'omitnan');
+            mean_abs(k, j)    = mean(abs(modeMap(idx)), 'omitnan');
+        end
+    end
+
+    % ---- choose metric based on useAbs (now it actually affects results) ----
+    % useAbs = 1: mean(|mode|) within network (recommended)
+    % useAbs = 0: |mean(mode)| within network (keeps "bias" strength, avoids sign flip issues)
+    metric_all = nan(nMode, nNet);
+    if MBM.yeo7.useAbs
+        metric_all = mean_abs;
+    else
+        metric_all = abs(mean_signed);
+    end
+
+    % ---- top-2 networks per mode (by chosen metric) ----
+    top2_idx   = zeros(nMode, 2);
+    top2_name  = cell(nMode, 2);
+    top2_value = nan(nMode, 2);
+
+    for k = 1:nMode
+        [~, order] = sort(metric_all(k, :), 'descend');
+        nTop = min(2, numel(order));
+        top2_idx(k, 1:nTop) = order(1:nTop);
+        if nTop < 2
+            top2_idx(k, 2) = order(1);
+        end
+
+        j1 = top2_idx(k, 1);
+        j2 = top2_idx(k, 2);
+
+        top2_name{k, 1}  = netNames{j1};
+        top2_name{k, 2}  = netNames{j2};
+        top2_value(k, 1) = metric_all(k, j1);
+        top2_value(k, 2) = metric_all(k, j2);
+    end
+
+    % ---- Save into MBM ----
+    MBM.eig.yeo7.netIDs        = netIDs;        % label IDs (encoded integers)
+    MBM.eig.yeo7.netNames      = netNames;      % aligned to netIDs
+    MBM.eig.yeo7.mean_abs      = mean_abs;
+    MBM.eig.yeo7.mean_signed   = mean_signed;
+    MBM.eig.yeo7.metric        = metric_all;    % what you used for ranking
+    MBM.eig.yeo7.useAbs        = MBM.yeo7.useAbs;
+    MBM.eig.yeo7.top2_idx      = top2_idx;      % indices into netIDs/netNames
+    MBM.eig.yeo7.top2_name     = top2_name;
+    MBM.eig.yeo7.top2_value    = top2_value;
+
+    % ---- Optional: write a CSV summary ----
+    if ~isfield(MBM.yeo7, 'csvFile') || isempty(MBM.yeo7.csvFile)
+        if isfield(MBM.eig, 'resultFile')
+            [p, n, ~] = fileparts(MBM.eig.resultFile);
+            MBM.yeo7.csvFile = fullfile(p, [n '_yeo7_mode_summary.csv']);
+        else
+            MBM.yeo7.csvFile = fullfile(pwd, 'yeo7_mode_summary.csv');
+        end
+    end
+
+    fid = fopen(MBM.yeo7.csvFile, 'w');
+    if MBM.yeo7.useAbs
+        fprintf(fid, 'mode,top1,top1_meanAbs,top2,top2_meanAbs\n');
+    else
+        fprintf(fid, 'mode,top1,top1_absMeanSigned,top2,top2_absMeanSigned\n');
+    end
+
+    for k = 1:nMode
+        fprintf(fid, '%d,%s,%.6g,%s,%.6g\n', ...
+            k, top2_name{k,1}, top2_value(k,1), top2_name{k,2}, top2_value(k,2));
+    end
+    fclose(fid);
+
+end
+%% === end Yeo7 summary ===
+
 % eigenmode decomposision
 % MBM.eig.beta = mbm_eigen_decompose(MBM.stat.statMap, MBM.eig.eig);
 MBM.eig.beta = calc_eigendecomposition(MBM.stat.statMap', MBM.eig.eig, 'orthogonal', MBM.eig.mass);
