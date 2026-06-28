@@ -73,6 +73,37 @@ np.random.seed(SEED)
 tf.random.set_seed(SEED)
 
 
+
+def bootstrap_auc_ci(y_true, y_scores, n_bootstraps=2000, random_state=44):
+    """Return percentile bootstrap 95% CI for ROC AUC.
+
+    Bootstrap resamples that contain only one class are skipped because
+    roc_auc_score is undefined for a single-class sample.
+    """
+    y_true_np = np.asarray(y_true, dtype=int)
+    y_scores_np = np.asarray(y_scores, dtype=float)
+
+    if len(np.unique(y_true_np)) < 2:
+        return np.nan, np.nan
+
+    rng = np.random.RandomState(random_state)
+    bootstrapped_auc = []
+
+    for _ in range(n_bootstraps):
+        indices = rng.randint(0, len(y_true_np), len(y_true_np))
+        if len(np.unique(y_true_np[indices])) < 2:
+            continue
+        auc_i = roc_auc_score(y_true_np[indices], y_scores_np[indices])
+        bootstrapped_auc.append(auc_i)
+
+    if len(bootstrapped_auc) == 0:
+        return np.nan, np.nan
+
+    ci_lower = np.percentile(bootstrapped_auc, 2.5)
+    ci_upper = np.percentile(bootstrapped_auc, 97.5)
+    return ci_lower, ci_upper
+
+
 def main():
     # -----------------------------------------------------------------
     # CONFIG
@@ -251,20 +282,21 @@ def main():
     rec  = recall_score(y_true, y_pred)
     f1   = f1_score(y_true, y_pred)
     auc_score = roc_auc_score(y_true, y_probs)
+    auc_ci_lower, auc_ci_upper = bootstrap_auc_ci(y_true, y_probs, n_bootstraps=2000, random_state=SEED)
 
     print("\n========== 5-Fold CV Performance (Age-range-matched) ==========")
     print(f"Accuracy:  {acc:.4f}")
     print(f"Precision: {prec:.4f}")
     print(f"Recall:    {rec:.4f}")
     print(f"F1 Score:  {f1:.4f}")
-    print(f"AUC:       {auc_score:.4f}")
+    print(f"AUC:       {auc_score:.4f} (95% CI {auc_ci_lower:.4f}-{auc_ci_upper:.4f})")
 
     # ROC curve
     fpr, tpr, thresholds = roc_curve(y_true, y_probs)
     roc_auc = auc(fpr, tpr)
 
     plt.figure(figsize=(7, 5))
-    plt.plot(fpr, tpr, lw=2, label=f"ROC (AUC = {roc_auc:.4f})")
+    plt.plot(fpr, tpr, lw=2, label=f"ROC (AUC = {roc_auc:.4f}; 95% CI {auc_ci_lower:.4f}-{auc_ci_upper:.4f})")
     plt.plot([0, 1], [0, 1], "k--", lw=1)
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
@@ -285,6 +317,8 @@ def main():
         "recall": rec,
         "f1": f1,
         "auc": auc_score,
+        "auc_ci_lower": auc_ci_lower,
+        "auc_ci_upper": auc_ci_upper,
     }
     metrics_df = pd.DataFrame([metrics])
     metrics_path = results_dir / f"metrics_fa_vs_sca3_{hemisphere}.csv"
