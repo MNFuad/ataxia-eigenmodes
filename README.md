@@ -283,12 +283,13 @@ Eigenmodes provide:
 # 📜 How to Cite
 
 ```
-@misc{ataxia-eigenmodes,
-  title        = {ataxia-eigenmodes: Structural and functional brain geometry signatures for hereditary ataxias},
-  author       = {Your Name and Collaborators},
-  year         = {2025},
-  howpublished = {GitHub repository},
-  url          = {https://github.com/<your-username>/ataxia-eigenmodes}
+@article{tao2026geometric,
+  title={Geometric Brain Signatures for Diagnosing Rare Hereditary Ataxias and Predicting Function},
+  author={Tao, Zuitian and Naejie, Gilles and Noman, Fuad and Rezende, Thiago JR and Franca, Marcondes and Fornito, Alex and Harding, Ian H and Georgiou-Karistianis, Nellie and Cao, Trang and Saha, Susmita and others},
+  journal={medRxiv},
+  pages={2026--03},
+  year={2026},
+  publisher={Cold Spring Harbor Laboratory Press}
 }
 ```
 
