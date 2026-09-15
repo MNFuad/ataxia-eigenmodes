@@ -8,7 +8,7 @@
 
 This repository accompanies the work:
 
-> **Geometric Brain Signatures for Diagnosing Rare Hereditary Ataxias and Predicting Function**
+> **Geometric Brain Signatures for Characterising Hereditary Ataxias and Functional Inference: a multicohort study**
 
 It implements a complete pipeline for **geometric eigenmode analysis** of structural and functional MRI in Friedreich's Ataxia (FA) and spinocerebellar ataxias (SCA).
 
